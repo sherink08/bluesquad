@@ -1,0 +1,228 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Bluesquad API Template",
+    "Parameters": {
+        "PublicHostedZoneName": {
+          "Description": "Hosted DNS Zone to make public DNS entries. Important: Use without last period sign!",
+          "Type": "String",
+          "Default": "bluesquad.in"
+           },
+        "SSLCertificateGlobal": {
+          "Type": "String",
+          "Description": "SSL Certificate ARN to be used on the API Gateway..",
+          "Default": "arn:aws-cn:acm:cn-northwest-1:138923696366:certificate/2ed85bf7-c42e-4553-8b26-9fefe17cc773"
+        }
+    },
+    "Resources": {  
+        "bluesquadapi": {
+        "Type": "AWS::ApiGateway::RestApi",
+        "Properties": {
+          "Name": "Bluesquad API",
+          "EndpointConfiguration": {
+          "Types": ["REGIONAL"]
+          },    
+          "Description": "API used for Access to Bluesquad APIs",
+          "FailOnWarnings": true
+        }
+      },
+	"DomainNameAPI": {
+      "Type": "AWS::ApiGateway::DomainName",
+      "Properties": {
+        "RegionalCertificateArn": {
+          "Ref": "SSLCertificateGlobal"
+        },
+		"EndpointConfiguration": {
+        "Types": ["REGIONAL"]
+        },
+        "DomainName": "api.bluesquad.in"
+      }
+    },
+      "BasePathMappingAPI": {
+        "Type": "AWS::ApiGateway::BasePathMapping",
+        "Properties": {
+          "BasePath": "",
+          "Stage": "rest",
+          "DomainName": {
+            "Ref": "DomainNameAPI"
+          },
+          "RestApiId": {
+            "Ref": "bluesquadapi"
+          }
+        }
+      },"LambdaPermissionTestFunction": {
+        "Type": "AWS::Lambda::Permission",
+        "Properties": {
+          "Action": "lambda:invokeFunction",
+          "FunctionName": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:aws:lambda:",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ":",
+                {
+                  "Ref": "AWS::AccountId"
+                },
+                ":function:testfunction"
+              ]
+            ]
+          },
+          "Principal": "apigateway.amazonaws.com",
+          "SourceArn": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:aws:execute-api:",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ":",
+                {
+                  "Ref": "AWS::AccountId"
+                },
+                ":",
+                {
+                  "Ref": "bluesquadapi"
+                },
+                "/*"
+              ]
+            ]
+          }
+        }
+      },
+      "TestFunctionsResource": {
+        "Type": "AWS::ApiGateway::Resource",
+        "Properties": {
+          "RestApiId": {
+            "Ref": "bluesquadapi"
+          },
+          "ParentId": {
+            "Fn::GetAtt": ["bluesquadapi", "RootResourceId"]
+          },
+          "PathPart": "testfunctions"
+        }
+      },
+      "TestFunctionResource": {
+        "Type": "AWS::ApiGateway::Resource",
+        "Properties": {
+          "RestApiId": {
+            "Ref": "bluesquadapi"
+          },
+          "ParentId": {
+            "Ref": "TestFunctionsResource"
+          },
+          "PathPart": "test"
+        }
+      },
+      "TestFunctionRequest": {
+        "DependsOn": "LambdaPermissionTestFunction",
+        "Type": "AWS::ApiGateway::Method",
+        "Properties": {
+          "AuthorizationType": "NONE",
+          "HttpMethod": "GET",
+          "Integration": {
+            "Type": "AWS_PROXY",
+            "IntegrationHttpMethod": "POST",
+            "Uri": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:aws:apigateway:",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ":lambda:path/2015-03-31/functions/",
+                  "arn:aws:lambda:",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ":",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  ":function:testfunction",
+                  "/invocations"
+                ]
+              ]
+            },
+            "IntegrationResponses": [
+              {
+                "StatusCode": 200,
+                "ResponseTemplates": {
+                  "application/json": ""
+                },
+                "ResponseParameters": {
+                  "method.response.header.Access-Control-Allow-Origin": "*"
+                }
+              }
+            ]
+          },
+          "RequestParameters": {
+            "method.request.querystring.name": false
+          },
+          "ResourceId": {
+            "Ref": "TestFunctionResource"
+          },
+          "RestApiId": {
+            "Ref": "bluesquadapi"
+          },
+          "MethodResponses": [
+            {
+              "StatusCode": 200,
+              "ResponseModels": {
+                "application/json": "Empty"
+              },
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Origin": "*"
+              }
+            }
+          ]
+        }
+      },
+      "TestfunctionOptionsCORS":{
+        "DependsOn": "LambdaPermissionTestFunction",
+        "Type": "AWS::ApiGateway::Method",
+        "Properties": {
+            "AuthorizationType": "NONE",
+            "HttpMethod": "OPTIONS",
+            "Integration": {
+                "Type": "MOCK",
+                "IntegrationHttpMethod": "POST",
+                "IntegrationResponses": [{
+                    "StatusCode": 200,
+                    "ResponseTemplates": {
+                        "application/json": ""
+                    },
+                    "ResponseParameters": {
+                        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+                        "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
+                        "method.response.header.Access-Control-Allow-Origin": "*"
+                    }
+                }],
+                "RequestTemplates": {
+                    "application/json": "{\"statusCode\": 200}"
+                }
+            },
+            "ResourceId": {
+                "Ref": "TestFunctionResource"
+            },
+            "RestApiId": {
+                "Ref": "bluesquadapi"
+            },
+            "MethodResponses": [{
+                "StatusCode": 200,
+                "ResponseModels": {
+                    "application/json": "Empty"
+                },
+                "ResponseParameters": {
+                    "method.response.header.Access-Control-Allow-Headers": "*",
+                    "method.response.header.Access-Control-Allow-Methods": "*",
+                    "method.response.header.Access-Control-Allow-Origin": "*"
+                }
+            }]
+        }
+    }
+    }
+  }

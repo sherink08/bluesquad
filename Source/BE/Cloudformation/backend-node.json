@@ -1,0 +1,20 @@
+
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Resources": {
+      "TestMethod": {
+        "Type": "AWS::Lambda::Function",
+        "Properties": {
+          "FunctionName": "testfunction",
+          "Handler": "src/index.handler",
+          "Role": "arn:aws:iam::060269135236:role/lambda_execution_role",
+          "Code": {
+            "S3Bucket": "bluesquad-lambda-functions",
+            "S3Key": "TestFunction.zip"
+          },
+          "Runtime": "nodejs14.x",
+          "Timeout": 300
+        }
+      }
+    }
+  }
