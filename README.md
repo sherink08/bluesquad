@@ -1,0 +1,2 @@
+# bluesquad
+Bluesquad logistics repo
